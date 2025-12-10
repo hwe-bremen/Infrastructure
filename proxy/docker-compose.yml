@@ -11,29 +11,32 @@ services:
     restart: unless-stopped
     
     ports:
-      - "80:80"       # HTTP
+      - "80:80"       # HTTP AskValentin
       - "443:443"     # HTTPS AskValentin
       - "8080:8080"   # HTTP Holzring
       - "8443:8443"   # HTTPS Holzring
-    
+      - "9080:9080"   # HTTP Hofmann
+      - "9443:9443"   # HTTPS Hofmann
+
     volumes:
       # nginx Configs
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./conf.d:/etc/nginx/conf.d:ro
       - ./ssl:/etc/nginx/ssl:ro
-      
+
       # SSL Zertifikate (Let's Encrypt)
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot
-      
+
       # Logs
       - ./logs:/var/log/nginx
-    
+
     networks:
       - proxy_net
       - chatp2_network
       - askvalentinai_holzring_app_network
-    
+      - hofmann_net
+
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -47,4 +50,6 @@ networks:
   chatp2_network:
     external: true
   askvalentinai_holzring_app_network:
+    external: true
+  hofmann_net:
     external: true
