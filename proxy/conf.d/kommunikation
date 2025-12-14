@@ -1,0 +1,353 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🗨️ ASKVALENTINAI-CHAT - nginx Configuration
+# Port: 10443 (HTTPS) / 10080 (HTTP)
+# Domain: askvalentinai-chat.duckdns.org
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RATE LIMITING ZONES
+# ═══════════════════════════════════════════════════════════════════════════════
+limit_req_zone $binary_remote_addr zone=chat_chat:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=chat_api:10m rate=20r/s;
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UPSTREAM DEFINITIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+upstream chat-app {
+    server chat-app:8000;
+    keepalive 32;
+}
+
+upstream chat-streamlit {
+    server chat-app:8502;
+    keepalive 8;
+}
+
+upstream chat-monitor {
+    server chat-monitor:5053;
+    keepalive 8;
+}
+
+upstream chat-grafana {
+    server chat-grafana:3000;
+    keepalive 8;
+}
+
+upstream chat-prometheus {
+    server chat-prometheus:9090;
+    keepalive 8;
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTTP SERVER (Port 10080) - Redirect to HTTPS
+# ═══════════════════════════════════════════════════════════════════════════════
+server {
+    listen 10080;
+    server_name askvalentinai-chat.duckdns.org;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host:10443$request_uri;
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTTPS SERVER (Port 10443) - Main Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+server {
+    listen 10443 ssl;
+    http2 on;
+    server_name askvalentinai-chat.duckdns.org;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SSL Configuration
+    # ═══════════════════════════════════════════════════════════════════════════
+    ssl_certificate /etc/letsencrypt/live/askvalentinai-chat.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/askvalentinai-chat.duckdns.org/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:ChatSSL:10m;
+    ssl_session_tickets off;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Security Headers
+    # ═══════════════════════════════════════════════════════════════════════════
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Logging
+    # ═══════════════════════════════════════════════════════════════════════════
+    access_log /var/log/nginx/chat_access.log;
+    error_log /var/log/nginx/chat_error.log;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TRAILING SLASH REDIRECTS
+    # ═══════════════════════════════════════════════════════════════════════════
+    location = /monitor {
+        return 301 $scheme://$host:10443/monitor/;
+    }
+
+    location = /grafana {
+        return 301 $scheme://$host:10443/grafana/;
+    }
+
+    location = /prometheus {
+        return 301 $scheme://$host:10443/prometheus/;
+    }
+
+    location = /admin {
+        return 301 $scheme://$host:10443/admin/;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CHAT ENDPOINT (Streaming) - KRITISCH!
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /chat {
+        limit_req zone=chat_chat burst=10 nodelay;
+        proxy_pass http://chat-app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection '';
+        chunked_transfer_encoding off;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MONITOR ROUTES (BEFORE /static/)
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /monitor/ {
+        proxy_pass http://chat-monitor;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/css/monitor/ {
+        proxy_pass http://chat-monitor/static/css/monitor/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 1h;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /static/js/monitor/ {
+        proxy_pass http://chat-monitor/static/js/monitor/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 1h;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # GRAFANA
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /grafana/ {
+        proxy_pass http://chat-grafana;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /grafana/api/live/ {
+        proxy_pass http://chat-grafana;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PROMETHEUS
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /prometheus/ {
+        proxy_pass http://chat-prometheus;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # ROUTER-MINI API (BEFORE /api/)
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /api/router-mini/ {
+        limit_req zone=chat_api burst=30 nodelay;
+        proxy_pass http://chat-app/api/router-mini/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CHAT API (with streaming support)
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /api/chat {
+        limit_req zone=chat_chat burst=20 nodelay;
+        proxy_pass http://chat-app/api/chat;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
+        proxy_connect_timeout 120s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # WEBSOCKET
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /ws/ {
+        proxy_pass http://chat-app/ws/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 7d;
+        proxy_send_timeout 7d;
+        proxy_read_timeout 7d;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # GENERAL API
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /api/ {
+        limit_req zone=chat_api burst=30 nodelay;
+        proxy_pass http://chat-app/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # HEALTH & METRICS
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /health {
+        proxy_pass http://chat-app/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+    }
+
+    location /metrics {
+        proxy_pass http://chat-app/metrics;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CHAT WIDGET
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /chat-widget/ {
+        proxy_pass http://chat-app/chat-widget/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CHAT UI (Fullscreen)
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /chat-ui/ {
+        proxy_pass http://chat-app/chat-ui/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 1h;
+        add_header Cache-Control "public";
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STATIC FILES (AFTER monitor routes!)
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /static/ {
+        proxy_pass http://chat-app/static/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STREAMLIT ADMIN PANEL
+    # ═══════════════════════════════════════════════════════════════════════════
+    location /admin/ {
+        proxy_pass http://chat-streamlit/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }
+
+    location /_stcore/ {
+        proxy_pass http://chat-streamlit/_stcore/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }
+
+    location /component/ {
+        proxy_pass http://chat-streamlit/component/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # DEFAULT - All other requests to App
+    # ═══════════════════════════════════════════════════════════════════════════
+    location / {
+        proxy_pass http://chat-app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
