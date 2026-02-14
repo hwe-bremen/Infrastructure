@@ -17,8 +17,10 @@ services:
       - "9443:9443"     # HTTPS Hofmann
       - "10080:10080"   # HTTP Chat
       - "10443:10443"   # HTTPS Chat
-      - "11080:11080"   # HTTP BEK 
-      - "11443:11443"   # HTTPS BEK 
+      - "11080:11080"   # HTTP BEK (Energiekonsens)
+      - "11443:11443"   # HTTPS BEK (Energiekonsens)
+      - "12080:12080"   # HTTP Hofmann-USA
+      - "12443:12443"   # HTTPS Hofmann-USA
     volumes:
       # nginx Configs
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
@@ -36,6 +38,7 @@ services:
       - hofmann_net
       - chat_net
       - bek_net
+      - usa_net
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -54,4 +57,6 @@ networks:
   chat_net:
     external: true
   bek_net:
+    external: true
+  usa_net:
     external: true
