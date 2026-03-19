@@ -1,70 +1,74 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🇺🇸 HOFMANN-USA - nginx Configuration
-# Port: 12443 (HTTPS) / 12080 (HTTP)
-# Domain: hofmann-usa.askvalentinai.com (via Cloudflare DNS)
+# 🗨️ ASKVALENTINAI-CHAT - nginx Configuration
+# Port: 10443 (HTTPS) / 10080 (HTTP)
+# Domain: askvalentinai-chat.duckdns.org
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RATE LIMITING ZONES
 # ═══════════════════════════════════════════════════════════════════════════════
-limit_req_zone $binary_remote_addr zone=usa_chat:10m rate=10r/s;
-limit_req_zone $binary_remote_addr zone=usa_api:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=chat_chat:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=chat_api:10m rate=20r/s;
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # UPSTREAM DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════
-upstream usa-app {
-    server usa-app:8000;
+upstream chat-app {
+    server chat-app:8000;
     keepalive 32;
 }
 
-upstream usa-streamlit {
-    server usa-app:8502;
+upstream chat-streamlit {
+    server chat-app:8502;
     keepalive 8;
 }
 
-
-upstream usa-grafana {
-    server usa-grafana:3000;
+upstream chat-monitor {
+    server chat-monitor:5053;
     keepalive 8;
 }
 
-upstream usa-prometheus {
-    server usa-prometheus:9090;
+upstream chat-grafana {
+    server chat-grafana:3000;
+    keepalive 8;
+}
+
+upstream chat-prometheus {
+    server chat-prometheus:9090;
     keepalive 8;
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HTTP SERVER (Port 12080) - Redirect to HTTPS
+# HTTP SERVER (Port 10080) - Redirect to HTTPS
 # ═══════════════════════════════════════════════════════════════════════════════
 server {
-    listen 12080;
-    server_name hofmann-usa.askvalentinai.com;
+    listen 10080;
+    server_name askvalentinai-chat.duckdns.org;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
     location / {
-        return 301 https://$host:12443$request_uri;
+        return 301 https://$host:10443$request_uri;
     }
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HTTPS SERVER (Port 12443) - Main Configuration
+# HTTPS SERVER (Port 10443) - Main Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
 server {
-    listen 12443 ssl;
+    listen 10443 ssl;
     http2 on;
-    server_name hofmann-usa.askvalentinai.com;
+    server_name askvalentinai-chat.duckdns.org;
 
     # ═══════════════════════════════════════════════════════════════════════════
     # SSL Configuration
     # ═══════════════════════════════════════════════════════════════════════════
-    ssl_certificate /etc/letsencrypt/live/hofmann-usa.askvalentinai.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/hofmann-usa.askvalentinai.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/askvalentinai-chat.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/askvalentinai-chat.duckdns.org/privkey.pem;
     ssl_session_timeout 1d;
-    ssl_session_cache shared:USASSL:10m;
+    ssl_session_cache shared:ChatSSL:10m;
     ssl_session_tickets off;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
@@ -80,34 +84,34 @@ server {
     # ═══════════════════════════════════════════════════════════════════════════
     # Logging
     # ═══════════════════════════════════════════════════════════════════════════
-    access_log /var/log/nginx/usa_access.log;
-    error_log /var/log/nginx/usa_error.log;
+    access_log /var/log/nginx/chat_access.log;
+    error_log /var/log/nginx/chat_error.log;
 
     # ═══════════════════════════════════════════════════════════════════════════
     # TRAILING SLASH REDIRECTS
     # ═══════════════════════════════════════════════════════════════════════════
     location = /monitor {
-        return 301 $scheme://$host:12443/monitor/;
+        return 301 $scheme://$host:10443/monitor/;
     }
 
     location = /grafana {
-        return 301 $scheme://$host:12443/grafana/;
+        return 301 $scheme://$host:10443/grafana/;
     }
 
     location = /prometheus {
-        return 301 $scheme://$host:12443/prometheus/;
+        return 301 $scheme://$host:10443/prometheus/;
     }
 
     location = /admin {
-        return 301 $scheme://$host:12443/admin/;
+        return 301 $scheme://$host:10443/admin/;
     }
 
     # ═══════════════════════════════════════════════════════════════════════════
     # CHAT ENDPOINT (Streaming) - KRITISCH!
     # ═══════════════════════════════════════════════════════════════════════════
     location /chat {
-        limit_req zone=usa_chat burst=10 nodelay;
-        proxy_pass http://usa-app;
+        limit_req zone=chat_chat burst=10 nodelay;
+        proxy_pass http://chat-app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -126,6 +130,7 @@ server {
     # MONITOR ROUTES (BEFORE /static/)
     # ═══════════════════════════════════════════════════════════════════════════
     location /monitor/ {
+        proxy_pass http://chat-monitor;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -134,6 +139,7 @@ server {
     }
 
     location /static/css/monitor/ {
+        proxy_pass http://chat-monitor/static/css/monitor/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         expires 1h;
@@ -141,6 +147,7 @@ server {
     }
 
     location /static/js/monitor/ {
+        proxy_pass http://chat-monitor/static/js/monitor/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         expires 1h;
@@ -151,7 +158,7 @@ server {
     # GRAFANA
     # ═══════════════════════════════════════════════════════════════════════════
     location /grafana/ {
-        proxy_pass http://usa-grafana;
+        proxy_pass http://chat-grafana;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -160,7 +167,7 @@ server {
     }
 
     location /grafana/api/live/ {
-        proxy_pass http://usa-grafana;
+        proxy_pass http://chat-grafana;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -171,7 +178,7 @@ server {
     # PROMETHEUS
     # ═══════════════════════════════════════════════════════════════════════════
     location /prometheus/ {
-        proxy_pass http://usa-prometheus;
+        proxy_pass http://chat-prometheus;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -183,8 +190,8 @@ server {
     # ROUTER-MINI API (BEFORE /api/)
     # ═══════════════════════════════════════════════════════════════════════════
     location /api/router-mini/ {
-        limit_req zone=usa_api burst=30 nodelay;
-        proxy_pass http://usa-app/api/router-mini/;
+        limit_req zone=chat_api burst=30 nodelay;
+        proxy_pass http://chat-app/api/router-mini/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -199,8 +206,8 @@ server {
     # CHAT API (with streaming support)
     # ═══════════════════════════════════════════════════════════════════════════
     location /api/chat {
-        limit_req zone=usa_chat burst=20 nodelay;
-        proxy_pass http://usa-app/api/chat;
+        limit_req zone=chat_chat burst=20 nodelay;
+        proxy_pass http://chat-app/api/chat;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -219,7 +226,7 @@ server {
     # WEBSOCKET
     # ═══════════════════════════════════════════════════════════════════════════
     location /ws/ {
-        proxy_pass http://usa-app/ws/;
+        proxy_pass http://chat-app/ws/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -236,8 +243,8 @@ server {
     # GENERAL API
     # ═══════════════════════════════════════════════════════════════════════════
     location /api/ {
-        limit_req zone=usa_api burst=30 nodelay;
-        proxy_pass http://usa-app/api/;
+        limit_req zone=chat_api burst=30 nodelay;
+        proxy_pass http://chat-app/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -252,7 +259,7 @@ server {
     # HEALTH & METRICS
     # ═══════════════════════════════════════════════════════════════════════════
     location /health {
-        proxy_pass http://usa-app/health;
+        proxy_pass http://chat-app/health;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_connect_timeout 5s;
@@ -260,7 +267,7 @@ server {
     }
 
     location /metrics {
-        proxy_pass http://usa-app/metrics;
+        proxy_pass http://chat-app/metrics;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
     }
@@ -269,7 +276,7 @@ server {
     # CHAT WIDGET
     # ═══════════════════════════════════════════════════════════════════════════
     location /chat-widget/ {
-        proxy_pass http://usa-app/chat-widget/;
+        proxy_pass http://chat-app/chat-widget/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -281,7 +288,7 @@ server {
     # CHAT UI (Fullscreen)
     # ═══════════════════════════════════════════════════════════════════════════
     location /chat-ui/ {
-        proxy_pass http://usa-app/chat-ui/;
+        proxy_pass http://chat-app/chat-ui/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         expires 1h;
@@ -292,7 +299,7 @@ server {
     # STATIC FILES (AFTER monitor routes!)
     # ═══════════════════════════════════════════════════════════════════════════
     location /static/ {
-        proxy_pass http://usa-app/static/;
+        proxy_pass http://chat-app/static/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         expires 7d;
@@ -303,7 +310,7 @@ server {
     # STREAMLIT ADMIN PANEL
     # ═══════════════════════════════════════════════════════════════════════════
     location /admin/ {
-        proxy_pass http://usa-streamlit/;
+        proxy_pass http://chat-streamlit/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -315,7 +322,7 @@ server {
     }
 
     location /_stcore/ {
-        proxy_pass http://usa-streamlit/_stcore/;
+        proxy_pass http://chat-streamlit/_stcore/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Upgrade $http_upgrade;
@@ -324,7 +331,7 @@ server {
     }
 
     location /component/ {
-        proxy_pass http://usa-streamlit/component/;
+        proxy_pass http://chat-streamlit/component/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
     }
@@ -333,7 +340,7 @@ server {
     # DEFAULT - All other requests to App
     # ═══════════════════════════════════════════════════════════════════════════
     location / {
-        proxy_pass http://usa-app;
+        proxy_pass http://chat-app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
