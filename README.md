@@ -10,6 +10,33 @@ Multi-Client Deployment mit nginx-proxy für AskValentinAI
 
 ---
 
+scp -i ~/.ssh/askvalentin_hetzner root@46.224.63.191:"~/infrastructure/proxy/conf.d/*.conf" proxy/conf.d/
+scp -i ~/.ssh/askvalentin_hetzner root@46.224.63.191:~/infrastructure/proxy/nginx.conf proxy/nginx.conf
+
+scp -i ~/.ssh/askvalentin_hetzner -r \
+  "root@46.224.63.191:/root/infrastructure/proxy/conf.d/" proxy/
+
+ssh -i ~/.ssh/askvalentin_hetzner root@46.224.63.191 \
+  "echo '$(cat ~/.ssh/askvalentin_hetzner_new.pub)' >> ~/.ssh/authorized_keys"
+
+
+ssh -i ~/.ssh/askvalentin_hetzner_new root@46.224.63.191 "
+  # Alte Key-Datei aus conf.d löschen
+  rm -f ~/infrastructure/proxy/conf.d/askvalentin_hetzner
+
+  # Alten Key aus authorized_keys entfernen
+  grep -v 'askvalentin_hetzner' ~/.ssh/authorized_keys > /tmp/auth_keys_new
+  mv /tmp/auth_keys_new ~/.ssh/authorized_keys
+  chmod 600 ~/.ssh/authorized_keys
+  echo 'Alter Key entfernt!'
+  cat ~/.ssh/authorized_keys
+"
+
+ssh -i ~/.ssh/askvalentin_hetzner_REVOKED root@46.224.63.19 "echo test"
+
+ssh -i ~/.ssh/askvalentin_hetzner root@46.224.63.19 "echo 'Zugang OK'"
+
+
 ## 🎯 Projekte
 
 ### 1. AskValentin Core
