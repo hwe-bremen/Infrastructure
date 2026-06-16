@@ -2,25 +2,22 @@ version: '3.8'
 # ============================================
 # nginx-proxy - Multi-Client Reverse Proxy
 # ============================================
+# Stand 2026-06-16: Altlasten-Clients (askvalentin, holzring, hofmann,
+# hofmann-usa, bek) stillgelegt. Aktive Domains:
+#   - chat.askvalentinai.com + askvalentinai-chat.duckdns.org  -> 10080/10443
+#   - demo.askvalentinai.com (ehem. BEK-Slot, von demo wiederverwendet) -> 11080/11443
+# Behaltene Netze: proxy_net (u.a. demo-app-Notnagel) + chat_net (kommunikation-app).
 services:
   nginx-proxy:
     image: nginx:alpine
     container_name: nginx-proxy
     restart: unless-stopped
-    
+
     ports:
-      - "80:80"         # HTTP AskValentin
-      - "443:443"       # HTTPS AskValentin
-      - "8080:8080"     # HTTP Holzring
-      - "8443:8443"     # HTTPS Holzring
-      - "9080:9080"     # HTTP Hofmann
-      - "9443:9443"     # HTTPS Hofmann
-      - "10080:10080"   # HTTP Chat
-      - "10443:10443"   # HTTPS Chat
-      - "11080:11080"   # HTTP BEK (Energiekonsens)
-      - "11443:11443"   # HTTPS BEK (Energiekonsens)
-      - "12080:12080"   # HTTP Hofmann-USA
-      - "12443:12443"   # HTTPS Hofmann-USA
+      - "10080:10080"   # HTTP  Chat / Kommunikation
+      - "10443:10443"   # HTTPS Chat / Kommunikation
+      - "11080:11080"   # HTTP  demo (ehem. BEK-Slot)
+      - "11443:11443"   # HTTPS demo (ehem. BEK-Slot)
     volumes:
       # nginx Configs
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
@@ -33,12 +30,7 @@ services:
       - ./logs:/var/log/nginx
     networks:
       - proxy_net
-      - chatp2_network
-      - askvalentinai_holzring_app_network
-      - hofmann_net
       - chat_net
-      - bek_net
-      - usa_net
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -48,15 +40,5 @@ services:
 networks:
   proxy_net:
     external: true
-  chatp2_network:
-    external: true
-  askvalentinai_holzring_app_network:
-    external: true
-  hofmann_net:
-    external: true
   chat_net:
-    external: true
-  bek_net:
-    external: true
-  usa_net:
     external: true
