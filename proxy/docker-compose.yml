@@ -21,6 +21,8 @@ services:
       - "11443:11443"   # HTTPS demo (ehem. BEK-Slot)
       - "12080:12080"   # HTTP  IKH-Testumgebung (befristet, S-19: bei Scharfschaltung entfernen)
       - "12443:12443"   # HTTPS IKH-Testumgebung (befristet)
+      - "13080:13080"   # HTTP  Docs (askvalentinai-docs, Job 3 Stufe B)
+      - "13443:13443"   # HTTPS Docs (askvalentinai-docs, Job 3 Stufe B)
     volumes:
       # nginx Configs
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
@@ -29,6 +31,11 @@ services:
       # SSL Zertifikate (Let's Encrypt)
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot
+      # Docs-Site (statisches HTML, per rsync befuellt -- Job 3 Stufe B,
+      # siehe package.json "deploy" im askvalentinai-docs-Repo). Read-only
+      # in den Container, analog conf.d/ssl -- rsync schreibt auf den
+      # Host-Pfad ./docs-content, nicht in den Container hinein.
+      - ./docs-content:/var/www/askvalentinai-docs:ro
       # Logs
       - ./logs:/var/log/nginx
     networks:
