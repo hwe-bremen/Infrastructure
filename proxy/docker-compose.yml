@@ -7,6 +7,8 @@ version: '3.8'
 #   - chat.askvalentinai.com + askvalentinai-chat.duckdns.org  -> 10080/10443
 #   - demo.askvalentinai.com (ehem. BEK-Slot, von demo wiederverwendet) -> 11080/11443
 #   - ikh.askvalentinai.com (IKH-Testumgebung, befristet Rollout/Abnahme) -> 12080/12443
+#   - docs.askvalentinai.com -> 13080/13443
+#   - henne.askvalentinai.com (Henne Verpackung, Produktberater, M2) -> 14080/14443
 # Behaltene Netze: proxy_net (u.a. demo-app-Notnagel) + chat_net (kommunikation-app).
 services:
   nginx-proxy:
@@ -23,6 +25,8 @@ services:
       - "12443:12443"   # HTTPS IKH-Testumgebung (befristet)
       - "13080:13080"   # HTTP  Docs (askvalentinai-docs, Job 3 Stufe B)
       - "13443:13443"   # HTTPS Docs (askvalentinai-docs, Job 3 Stufe B)
+      - "14080:14080"   # HTTP  Henne Produktberater (Redirect auf 14443)
+      - "14443:14443"   # HTTPS Henne Produktberater (Kundenvorschau)
     volumes:
       # nginx Configs
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
