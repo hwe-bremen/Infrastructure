@@ -4,7 +4,12 @@ version: '3.8'
 # ============================================
 # Stand 2026-06-16: Altlasten-Clients (askvalentin, holzring, hofmann,
 # hofmann-usa, bek) stillgelegt. Aktive Domains:
-#   - chat.askvalentinai.com + askvalentinai-chat.duckdns.org  -> 10080/10443
+#   - chat.askvalentinai.com -> 10080/10443
+#     (askvalentinai-chat.duckdns.org lag im selben Portpaar und ist am
+#      2026-09-14 entfernt worden, R-257 -- der ungehaertete Zwilling. Der
+#      Portblock bleibt, chat bedient ihn weiter. Aufrufe unter dem alten
+#      Namen landen jetzt im chat-Block, weil kein server_name mehr passt;
+#      endgueltig still ist der Name erst nach Ruecknahme des DNS-Eintrags.)
 #   - demo.askvalentinai.com (ehem. BEK-Slot, von demo wiederverwendet) -> 11080/11443
 #   - ikh.askvalentinai.com (IKH-Testumgebung, befristet Rollout/Abnahme) -> 12080/12443
 #   - docs.askvalentinai.com -> 13080/13443

@@ -37,7 +37,7 @@ Alle neun Zertifikate: `authenticator = standalone`,
 | Domain | Proxy-Port | Conf in `conf.d/` | aktiv? |
 |---|---|---|---|
 | `chat.askvalentinai.com` | 10443 | `chat-askvalentinai.conf` | ✅ |
-| `askvalentinai-chat.duckdns.org` | 10443 | (im selben Block) | ✅ |
+| `askvalentinai-chat.duckdns.org` | — | — | ❌ Block entfernt 2026-09-14 (R-257); Zertifikat wird nicht mehr ausgeliefert, Erneuerung kann entfallen |
 | `demo.askvalentinai.com` | 11443 | `demo-askvalentinai.conf` | ✅ |
 | `khj.askvalentinai.com` | 12443 | `ikh-askvalentinai.conf` * | ✅ |
 | `docs.askvalentinai.com` | 13443 | — (nur auf dem Server?) ** | ✅ |
