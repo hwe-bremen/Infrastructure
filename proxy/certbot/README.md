@@ -39,7 +39,7 @@ Alle neun Zertifikate: `authenticator = standalone`,
 | `chat.askvalentinai.com` | 10443 | `chat-askvalentinai.conf` | ✅ |
 | `askvalentinai-chat.duckdns.org` | — | — | ❌ Block entfernt 2026-09-14 (R-257); Zertifikat wird nicht mehr ausgeliefert, Erneuerung kann entfallen |
 | `demo.askvalentinai.com` | 11443 | `demo-askvalentinai.conf` | ✅ |
-| `khj.askvalentinai.com` | 12443 | `ikh-askvalentinai.conf` * | ✅ |
+| `khj.askvalentinai.com` | 12443 | `khj-askvalentinai.conf` * | ✅ |
 | `docs.askvalentinai.com` | 13443 | — (nur auf dem Server?) ** | ✅ |
 | `henne.askvalentinai.com` | 14443 (geplant) | `henne-askvalentinai.conf` (geplant) | ⏳ |
 | `askvalentin.duckdns.org` | — | — | ❌ ungenutzt |
@@ -47,12 +47,16 @@ Alle neun Zertifikate: `authenticator = standalone`,
 | `energiekonsens.askvalentinai.com` | — | `bek-energiekonsens.conf.bak` | ❌ ungenutzt |
 | `hofmann-usa.askvalentinai.com` | — | — | ❌ ungenutzt |
 
-\* **Namensfalle:** Die Datei heisst `ikh-…`, der `server_name` darin ist
-`khj.askvalentinai.com`. Der Dateiname folgt der internen `client_id`
-(`israelitisches_krankenhaus_hh`). Das frueher vorhandene
-`ikh.askvalentinai.com`-Zertifikat wurde am 04.09. geloescht — es war hinter
-dem Cloudflare-Proxy auf einem fremden Origin und wurde von keinem aktiven
-Block genutzt.
+\* **Ehemalige Namensfalle, behoben mit R-267 (2026-09-15):** Die Datei
+hiess bis dahin `ikh-…`, obwohl der `server_name` darin immer
+`khj.askvalentinai.com` war — "ikh" war schlicht die falsche Bezeichnung
+(Betreiberauskunft 2026-09-15), keine Ableitung aus der internen
+`client_id` (`israelitisches_krankenhaus_hh`, die bewusst unveraendert
+bleibt, siehe Kopf von `khj-askvalentinai.conf`). Dateiname jetzt
+`khj-askvalentinai.conf`, konsistent mit `server_name`. Das frueher
+vorhandene `ikh.askvalentinai.com`-Zertifikat wurde am 04.09. geloescht —
+es war hinter dem Cloudflare-Proxy auf einem fremden Origin und wurde von
+keinem aktiven Block genutzt.
 
 \*\* **Offen:** Fuer docs sind 13080/13443 in `docker-compose.yml` gemappt,
 aber im Repo liegt keine Conf-Datei. Vor dem naechsten Proxy-Neustart klaeren.
