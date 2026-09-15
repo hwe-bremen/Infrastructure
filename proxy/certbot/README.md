@@ -133,3 +133,38 @@ das ganze Verzeichnis hat am 04.09. einen Befund erzeugt, den es nicht gab.
 **ca. 19.09.2026** — dann erneuert `khj.askvalentinai.com` zum ersten Mal
 wirklich. Das ist der Lauf, der die Reparatur produktiv beweist und
 zugleich der erste, bei dem der Deploy-Hook von selbst greift.
+
+---
+
+## 7 · Rueckweg — Portumstellung auf 80/443 (Q-5, §13 im Routen-Inventar)
+
+**Festgehalten vor dem ersten Commit dieses Vorgangs (2026-09-15), wie von
+Auflage Q-5 verlangt.** Die zehn Zertifikate laufen zwischen 34 und 79
+Tagen — solange dieser Weg besteht, ist ein Fehlversuch der Umstellung auf
+`webroot` folgenlos, kein Zeitdruck.
+
+**Ausgangszustand (Sollzustand §2 oben):** `authenticator = standalone`,
+Port 80/443 auf dem Host ungemappt, `proxy/docker-compose.yml` bildet nur
+1x080…14443 ab.
+
+**Rueckweg, in dieser Reihenfolge:**
+
+1. `"80:80"` und `"443:443"` wieder aus der `ports:`-Liste in
+   `proxy/docker-compose.yml` entfernen. **Neustart** des Proxy-Containers
+   (nicht Reload) — derselbe Schritttyp wie die Umstellung selbst (S4-3).
+2. **Nur falls S4-4 schon gelaufen ist:** die zehn
+   `/etc/letsencrypt/renewal/<name>.conf` zurueck auf
+   `authenticator = standalone` und `webroot_path` entfernen — Vorlage ist
+   der in §2 dieser Datei dokumentierte Zustand vor diesem Vorgang.
+   Solange S4-4 nicht gelaufen ist (Auflage Q-3 vor S4-4 noch offen),
+   entfaellt dieser Punkt ersatzlos.
+3. Die vier `listen 443 ssl;`-Zeilen (S4-2) und
+   `proxy/conf.d/00-port80-acme-und-redirect.conf` (S4-1) koennen stehen
+   bleiben — sie sind wirkungslos, sobald Schritt 1 rueckgaengig ist
+   (Port 443/80 wieder ungemappt). Entfernen ist optional, nicht Teil des
+   eigentlichen Rueckwegs.
+4. `nginx -t`, dann Reload/Neustart durch Hawe (Q-2).
+
+**Nach Schritt 1 ist der Rueckweg vollstaendig:** Port 80 ist wieder
+ungemappt, `standalone` kann wieder binden, die Erneuerung laeuft wie vor
+diesem Vorgang.
