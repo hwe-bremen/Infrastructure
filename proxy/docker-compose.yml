@@ -32,6 +32,15 @@ services:
       - "13443:13443"   # HTTPS Docs (askvalentinai-docs, Job 3 Stufe B)
       - "14080:14080"   # HTTP  Henne Produktberater (Redirect auf 14443)
       - "14443:14443"   # HTTPS Henne Produktberater (Kundenvorschau)
+      # S4-3 (§13 im Routen-Inventar, ROUTEN_INVENTAR_R231_2026-09-12.md):
+      # Standardports, damit Kunden ohne Portnummer aufrufen koennen. Neu
+      # gemappt -- erfordert NEUSTART des Containers, kein Reload genuegt
+      # (ein Port kann nicht per `nginx -s reload` neu gebunden werden).
+      # Zeitpunkt mit Hawe abstimmen. Ab hier bindet certbot --standalone
+      # NICHT mehr auf Port 80 -- Auflage Q-6 vor S4-4 pruefen (Kette
+      # Port 80 -> nginx -> Webroot), Rueckweg in proxy/certbot/README.md §7.
+      - "80:80"         # HTTP  Standard (ACME-Challenge + Redirect, alle Mandanten)
+      - "443:443"       # HTTPS Standard (SNI, alle vier Mandantenbloecke)
     volumes:
       # nginx Configs
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
