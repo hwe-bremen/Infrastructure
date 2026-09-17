@@ -159,6 +159,40 @@ docker exec nginx-proxy nginx -s reload
 3. Netzwerk in `docker-compose.yml` hinzufügen
 4. Committen & Deployen
 
+### Log-Rotation einrichten (R-264, einmalig)
+
+`proxy/logrotate/nginx-proxy.conf.template` liegt hier bereits; das
+ausführende Werkzeug (dieselbe, bereits abgenommene Maschinerie wie fürs
+Anwendungslog, L-1) liegt im Repo `askvalentinai-kommunikation`. Auf dem
+Server, nach `git pull` in beiden Repos:
+
+```bash
+cd /root/infrastructure
+git pull origin main
+
+LOG_DIR=/root/infrastructure/proxy/logs \
+LOG_RETENTION_DAYS=30 \
+TEMPLATE=/root/infrastructure/proxy/logrotate/nginx-proxy.conf.template \
+NAME=nginx-proxy \
+bash /root/AskValentinAI_Chat/docker_scripts/logrotate/install.sh
+```
+
+Idempotent — mehrfacher Aufruf erzeugt denselben Zustand. Läuft neben der
+Anwendungs-Rotation her, ohne sie zu berühren (eigenes State-File, eigener
+Cron-Trigger, siehe `NAME` oben).
+
+**Nachweis, dass `nginx -s reopen` tatsächlich greift** (nicht vom Skript
+allein zu zeigen — das prüft nur die Syntax):
+```bash
+logrotate -f /etc/logrotate.nginx-proxy.conf
+ls -la proxy/logs/   # die rotierte .1.gz muss den alten Stand tragen,
+                      # die neue aktive Datei muss weiterwachsen, nicht leer bleiben
+```
+Bleibt die aktive Datei nach dem erzwungenen Lauf leer, während nginx
+weiter bedient, schreibt nginx noch in die weggeschobene Datei — das
+Reopen-Signal ist dann nicht angekommen (Container-Name prüfen:
+`docker ps --filter name=nginx-proxy`).
+
 ---
 
 ## 📊 Monitoring
