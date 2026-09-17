@@ -1,0 +1,105 @@
+# ============================================================================
+# nginx-proxy -- Rotation der Zugriffs-/Fehlerprotokolle (R-264)
+# ============================================================================
+# Erzeugt aus dieser Vorlage durch das Werkzeug im Repo
+# askvalentinai-kommunikation: docker_scripts/logrotate/install.sh (L-1,
+# fuer R-264 generalisiert -- ein zweiter Aufrufer statt einer zweiten
+# Bauform). Platzhalter: __LOG_DIR__, __RETENTION_DAYS__
+#
+# Aufruf (manuell durch Hawe auf dem Server -- dieser Proxy hat kein
+# eigenes CI/CD, siehe README.md "Updates"):
+#   LOG_DIR=/root/infrastructure/proxy/logs \
+#   LOG_RETENTION_DAYS=30 \
+#   TEMPLATE=/root/infrastructure/proxy/logrotate/nginx-proxy.conf.template \
+#   NAME=nginx-proxy \
+#   bash /root/AskValentinAI_Chat/docker_scripts/logrotate/install.sh
+#
+# WARUM UEBERHAUPT EXTERN
+# ------------------------
+# nginx rotiert seine eigenen Logs nicht selbst; ohne diese Konfiguration
+# gibt es folglich GAR KEINE Rotation und die Dateien unter __LOG_DIR__
+# wachsen unbegrenzt (Messwert 14.09.2026: 163 MB gesamt,
+# chat_askvalentinai_access.log 38 MB wachsend, error.log 28 MB wachsend).
+# Netzadressen darin sind personenbezogene Daten und -- vor dieser Regel --
+# der einzige Datensatz der Anlage ohne Aufbewahrungsfrist
+# (askvalentinai-kommunikation, Datenschutz-Zuarbeit §2/§6).
+#
+# WARUM EIN GLOB STATT EINER EXPLIZITEN LISTE
+# --------------------------------------------
+# Anders als beim Anwendungslog-Vorbild (askvalentin-app.conf.template im
+# anderen Repo, dort eine explizite Liste von drei Dateien) schreibt in
+# __LOG_DIR__ ausschliesslich nginx selbst -- kein Shell-Redirect (>>) ist
+# beteiligt, der unter `create` denselben Deskriptor-Bug haette wie nginx
+# ohne das Reopen-Signal unten. Ein Glob ist hier deshalb sicher und deckt
+# zugleich kuenftige Mandanten automatisch ab: jede neue conf.d/*.conf
+# (eigene access_log/error_log-Direktiven) braucht dadurch KEINE zweite
+# Aenderung an dieser Datei.
+#
+# WARUM `create` UND AUSDRUECKLICH NICHT `copytruncate`
+# -------------------------------------------------------
+# Dieselbe Begruendung wie im Anwendungs-Vorbild: copytruncate hat ein
+# Verlustfenster zwischen Kopie und Truncate. `create` benennt um und legt
+# neu an -- verlustfrei, WENN der schreibende Prozess das mitbekommt
+# (naechster Absatz).
+#
+# WARUM DAS `postrotate`-SIGNAL HIER NICHT OPTIONAL IST
+# --------------------------------------------------------
+# Das Anwendungs-Vorbild braucht kein postrotate: WatchedFileHandler prueft
+# vor jedem Schreiben per os.stat auf einen Inode-Wechsel und oeffnet die
+# Datei bei Bedarf neu. nginx tut das NICHT -- es haelt seine
+# Log-Dateideskriptoren offen, bis es explizit signalisiert wird. Ohne das
+# postrotate unten wuerde nginx nach der Rotation unbeirrt in die
+# umbenannte (gleich komprimierte) Datei weiterschreiben; die neue, leere
+# Datei am alten Pfad bliebe fuer immer leer -- die Rotation liefe
+# augenscheinlich, das Protokoll selbst waere verwaist.
+#
+# `nginx -s reopen` ist der von nginx dafuer vorgesehene Weg -- nicht
+# `reload`, das laedt zusaetzlich die Konfiguration neu, mehr als hier
+# noetig. `docker exec` statt eines host-seitigen `kill -USR1`, weil nginx
+# ausschliesslich im Container `nginx-proxy` laeuft -- ein Signal von
+# aussen haette auf dem Host keine passende PID zu treffen. `|| true`,
+# damit ein kurzzeitig nicht erreichbarer Container (Wartung, Neustart)
+# nicht den gesamten logrotate-Lauf abbricht -- andere, vom selben Lauf
+# rotierte Dateien sollen trotzdem fertig werden.
+#
+# WELCHE DATEIEN
+# ---------------
+# __LOG_DIR__/*.log deckt ab: die globalen Vorgaben aus nginx.conf
+# (access.log, error.log) UND jede Mandanten-spezifische Datei aus
+# conf.d/*.conf (<mandant>_access.log, <mandant>_error.log) -- aktive wie
+# stillgelegte. Stillgelegte Mandanten (Stand 17.09.2026: bek, hofmann,
+# usa, askvalentin, chat, ikh) bekommen dadurch KEINE Sonderbehandlung:
+# ihre Dateien wachsen nicht mehr weiter, `notifempty` ueberspringt sie
+# nach der ersten Rotation, und die bereits rotierten Staende laufen ueber
+# `maxage` von selbst aus -- kein manuelles Loeschen noetig.
+#
+# WARUM STUENDLICH STATT TAEGLICH
+# ---------------------------------
+# Gleiche Begruendung wie im Anwendungs-Vorbild: `maxsize` wird nur beim
+# Lauf geprueft, ein taeglicher Lauf machte die Groessengrenze zu einer
+# Empfehlung statt einer echten Obergrenze. Der stuendliche Trigger kommt
+# aus docker_scripts/logrotate/install.sh (askvalentinai-kommunikation),
+# nicht aus dieser Datei.
+#
+# __RETENTION_DAYS__: 30 als Vorgabewert (Parallele zur Anwendung,
+# LOG_RETENTION_DAYS) -- Betreiber-Entscheid steht noch aus (Zuarbeit
+# Datenschutz §7 Punkt 6). Aendern = LOG_RETENTION_DAYS beim naechsten
+# Aufruf des Installations-Werkzeugs anders setzen, kein Commit noetig.
+# ============================================================================
+
+__LOG_DIR__/*.log
+{
+    daily
+    rotate __RETENTION_DAYS__
+    maxage __RETENTION_DAYS__
+    maxsize 200M
+    missingok
+    notifempty
+    create 0644 root root
+    compress
+    delaycompress
+    su root root
+    postrotate
+        docker exec nginx-proxy nginx -s reopen >/dev/null 2>&1 || true
+    endscript
+}
