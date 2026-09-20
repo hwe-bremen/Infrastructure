@@ -17,7 +17,11 @@ version: '3.8'
 # Behaltene Netze: proxy_net (u.a. demo-app-Notnagel) + chat_net (kommunikation-app).
 services:
   nginx-proxy:
-    image: nginx:alpine
+    # Fest auf den laufenden Stand (gemessen 20.09.2026: nginx 1.29.3,
+    # Kennung sha256:b3c656d55d7a... = Registry-Digest von
+    # nginx:1.29.3-alpine). Greift erst, wenn der Container neu angelegt
+    # wird -- Wartungsfenster, nicht per Deploy.
+    image: nginx:1.29.3-alpine
     container_name: nginx-proxy
     restart: unless-stopped
 
@@ -65,6 +69,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    # Logbegrenzung wie kommunikation-app (Hygiene-Sitzung 19./20.09.:
+    # 14 von 15 Containern schrieben json-file-Logs ohne max-size).
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 networks:
   proxy_net:
     external: true
