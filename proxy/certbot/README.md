@@ -45,8 +45,8 @@ Alle neun Zertifikate: `authenticator = standalone`,
 | `askvalentinai-chat.duckdns.org` | — | — | ❌ Block entfernt 2026-09-14 (R-257); Zertifikat wird nicht mehr ausgeliefert, Erneuerung kann entfallen |
 | `demo.askvalentinai.com` | 11443 | `demo-askvalentinai.conf` | ✅ |
 | `khj.askvalentinai.com` | 12443 | `khj-askvalentinai.conf` * | ✅ |
-| `docs.askvalentinai.com` | 443 (seit 22.09.), 13443 bis Firewall Stufe 2b | `docs-askvalentinai.conf` ** | ✅ |
-| `henne.askvalentinai.com` | 443 (14443 bis Firewall Stufe 2) | `henne-askvalentinai.conf` | ✅ |
+| `docs.askvalentinai.com` | 443 (seit 22.09.; 13443 von aussen geschlossen) | `docs-askvalentinai.conf` ** | ✅ |
+| `henne.askvalentinai.com` | 443 (14443 von aussen geschlossen) | `henne-askvalentinai.conf` | ✅ |
 | `askvalentin.duckdns.org` | — | — | ❌ ungenutzt |
 | `askvalentin-hofmann.duckdns.org` | — | — | ❌ ungenutzt |
 | `energiekonsens.askvalentinai.com` | — | `bek-energiekonsens.conf.bak` | ❌ ungenutzt |
