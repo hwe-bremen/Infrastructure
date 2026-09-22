@@ -30,6 +30,11 @@ Mangel — bei Zertifikaten ist Neu-Ausstellung ohnehin der normale Weg.
 
 ## 2 · Sollzustand (geprueft 2026-09-04)
 
+> **Ueberholt seit 15.09. (Portumstellung S4-4, siehe §7):** Port 80 haelt
+> nginx-proxy, erneuert wird ueber `webroot` (`webroot_path = /var/www/certbot`).
+> Fuer docs am 22.09. gemessen; die uebrigen vor jeder Zertifikatsaenderung mit
+> den Befehlen aus §5 pruefen. Die Tabelle beschreibt sonst den Stand 04.09.
+
 Alle neun Zertifikate: `authenticator = standalone`,
 `renew_before_expiry = 30 days`, ECDSA, Server
 `https://acme-v02.api.letsencrypt.org/directory`.
@@ -40,8 +45,8 @@ Alle neun Zertifikate: `authenticator = standalone`,
 | `askvalentinai-chat.duckdns.org` | — | — | ❌ Block entfernt 2026-09-14 (R-257); Zertifikat wird nicht mehr ausgeliefert, Erneuerung kann entfallen |
 | `demo.askvalentinai.com` | 11443 | `demo-askvalentinai.conf` | ✅ |
 | `khj.askvalentinai.com` | 12443 | `khj-askvalentinai.conf` * | ✅ |
-| `docs.askvalentinai.com` | 13443 | — (nur auf dem Server?) ** | ✅ |
-| `henne.askvalentinai.com` | 14443 (geplant) | `henne-askvalentinai.conf` (geplant) | ⏳ |
+| `docs.askvalentinai.com` | 443 (seit 22.09.), 13443 bis Firewall Stufe 2b | `docs-askvalentinai.conf` ** | ✅ |
+| `henne.askvalentinai.com` | 443 (14443 bis Firewall Stufe 2) | `henne-askvalentinai.conf` | ✅ |
 | `askvalentin.duckdns.org` | — | — | ❌ ungenutzt |
 | `askvalentin-hofmann.duckdns.org` | — | — | ❌ ungenutzt |
 | `energiekonsens.askvalentinai.com` | — | `bek-energiekonsens.conf.bak` | ❌ ungenutzt |
@@ -58,8 +63,8 @@ vorhandene `ikh.askvalentinai.com`-Zertifikat wurde am 04.09. geloescht —
 es war hinter dem Cloudflare-Proxy auf einem fremden Origin und wurde von
 keinem aktiven Block genutzt.
 
-\*\* **Offen:** Fuer docs sind 13080/13443 in `docker-compose.yml` gemappt,
-aber im Repo liegt keine Conf-Datei. Vor dem naechsten Proxy-Neustart klaeren.
+\*\* **Erledigt 04.09.:** `docs-askvalentinai.conf` liegt im Repo (byte-identisch
+vom Server uebernommen); seit 22.09. auch auf 443.
 
 **Vier Zertifikate bedienen keinen aktiven `server_name`** und werden
 trotzdem alle 60 Tage erneuert. Kein Fehler, aber unnoetige Last und
@@ -70,6 +75,12 @@ jeweils pruefen, ob wirklich kein Block sie referenziert.
 ---
 
 ## 3 · Neue Domain ausstellen
+
+> **Ueberholt seit 15.09.:** Port 80 haelt nginx-proxy, `--standalone` kann
+> nicht mehr binden. Neue Domain ueber den gemeinsamen Port-80-Block:
+> `certbot certonly --webroot -w /var/www/certbot -d <domain>` — Pfad vorher mit
+> einer bestehenden `/etc/letsencrypt/renewal/*.conf` abgleichen, danach
+> `certbot renew --dry-run`. Der Text darunter beschreibt den Stand davor.
 
 **Immer `--standalone`. Nicht `--manual`, nicht `--webroot`.**
 
