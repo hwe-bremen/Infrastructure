@@ -38,6 +38,17 @@
 #                                              app:8000, NICHT hierueber — der deny bricht
 #                                              das Scraping nicht
 #   /admin/cronjobs                           SEC-2 (2026-08-09) — ACP/MCP-Dashboard-Vorschaltung
+#   =/health/detailed, =/api/health           2026-09-23 — Diagnosepfade: /health/detailed
+#                                              nennt Version, Redis-Verbindungspool und die
+#                                              Namen der Hintergrundaufgaben, /api/health
+#                                              zeigt, dass Schluessel fuer OpenAI und
+#                                              Anthropic hinterlegt sind. Ohne Passwort auf
+#                                              chat, demo, henne gemessen (23.09., 10:39 UTC).
+#                                              Keine Kundendaten, kein Schluesselwert — aber
+#                                              Vorarbeit fuer gezielte Angriffe und
+#                                              Rueckfragen bei der Klinik-Pruefung.
+#                                              `location =`: der Praefix-Block /health bleibt
+#                                              offen, die Aussenueberwachung haengt daran.
 #   /prometheus/                              R-130 (2026-08-19) — dieser Weg hat NIE
 #                                              funktioniert (proxy_pass ohne Trailing-Slash,
 #                                              lief ins Leere); WER IHN "REPARIERT", OEFFNET
@@ -112,6 +123,23 @@ location = /openapi.json {
 location /metrics {
     satisfy all;
     deny all;
+}
+
+# 2026-09-23: Diagnosepfade sperren, Lebenszeichen offen lassen.
+# REIHENFOLGE BEACHTET: `location =` schlaegt den Praefix-Block `/health` in
+# jeder Mandantendatei — /health antwortet weiter 200, /health/detailed 403.
+# Die vier Keyword-Monitore muessen VOR dem Reload auf /health zeigen, sonst
+# stehen sie rot (Schluesselwort {"status":"healthy" steht in beiden Antworten).
+location = /health/detailed {
+    satisfy all;
+    deny all;
+    access_log off;
+}
+
+location = /api/health {
+    satisfy all;
+    deny all;
+    access_log off;
 }
 
 location /admin/cronjobs {
